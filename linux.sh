@@ -1,22 +1,26 @@
 #!/bin/bash
 
-# Function for pretty outputs
+########################################################################################
+## Utils
+########################################################################################
+
 pretty_print() {
   echo "============================================================"
   echo "$1"
   echo "============================================================"
 }
 
-# Define a function to handle errors
 handle_error() {
     echo "An error occurred in the script at line: $1"
     exit 1
 }
 
-
-# Set a trap to call the error handling function
 trap 'handle_error $LINENO' ERR
 
+
+########################################################################################
+## Constants
+########################################################################################
 
 
 packages = (
@@ -96,7 +100,9 @@ vscodeExtensions=(
 )
 
 
-# Prompts
+########################################################################################
+## Prompts
+########################################################################################
 
 echo "Enter your name:"
 read username
@@ -124,7 +130,10 @@ case "$choice" in
 esac
 
 
-# Update system
+########################################################################################
+## Base System
+########################################################################################
+
 updateSystem(){
   pretty_print "Updating system packages..."
   sudo apt update && sudo apt upgrade -y
@@ -142,7 +151,7 @@ configureShell(){
   killall -3 gnome-shell
 }
 
-# Set dark theme
+
 configureAppearance(){
   pretty_print "Setting up dark theme..."
   gsettings set org.gnome.desktop.interface gtk-theme "Adwaita-dark"
@@ -151,7 +160,6 @@ configureAppearance(){
 }
 
 
-# Configure the dock to float at the bottom, with icon size 30
 configureDock() {
   pretty_print "Configuring the dock..."
   gsettings set org.gnome.shell.extensions.dash-to-dock dock-position 'BOTTOM'
@@ -161,6 +169,7 @@ configureDock() {
   gsettings set org.gnome.shell.extensions.dash-to-dock dash-max-icon-size 30
   gsettings set org.gnome.shell.extensions.dash-to-dock dock-fixed false
 }
+
 
 installPackages(){
     echo "Installing packages..."
@@ -179,6 +188,7 @@ installPackages(){
     done
 }
 
+
 configureGit(){
     echo "Git config"
     git config --global user.name $username
@@ -186,7 +196,67 @@ configureGit(){
 }
 
 
-## Python & Node
+installFlatpak(){
+  flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+}
+
+installApp(){
+  flatpak install flathub $1
+}
+
+pinToDock(){
+  gsettings set org.gnome.shell favorite-apps "$(gsettings get org.gnome.shell favorite-apps | sed s/.$//), $1)"
+}
+
+setupSSH(){
+    echo "Setting up SSH keys..."
+    mkdir ~/.ssh
+    touch ~/.ssh/config
+    ssh-keygen -t rsa -b 4096 -C $email
+    ssh-add -K ~/.ssh/id_rsa;
+}
+
+configureZSH(){
+    # Set theme
+    sed -i '' 's/^ZSH_THEME=.*/ZSH_THEME="gentoo"/' ~/.zshrc
+    cat << EOF >> ~/.zshrc
+
+    ##############
+    # User Config
+
+    # Plugins
+    source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+    source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+    # ZSH Highlight
+    typeset -A ZSH_HIGHLIGHT_STYLES
+    ZSH_HIGHLIGHT_STYLES[arg0]='fg=yellow,bold'
+
+    # Alias
+    alias zshconfig="nano ~/.zshrc"
+    alias ohmyzsh="nano ~/.oh-my-zsh"
+
+    # Pyenv
+    export PATH="\$HOME/.pyenv/bin:\$PATH"
+    eval "\$(pyenv init -)"
+
+    # Golang
+    export PATH="\$PATH:\$(go env GOPATH)/bin"
+
+    # NVM
+    export NVM_DIR="\$HOME/.nvm"
+    [ -s "\$NVM_DIR/nvm.sh" ] && \. "\$NVM_DIR/nvm.sh"  # This loads nvm
+    [ -s "\$NVM_DIR/bash_completion" ] && \. "\$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+    # VSCode
+    export PATH="$PATH:/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
+
+EOF
+}
+
+########################################################################################
+## Dev Environment
+########################################################################################
 
 installPython(){
     # Pyenv
@@ -254,45 +324,6 @@ installGolang(){
     echo "Installing Go... done."
 }
 
-
-configureZSH(){
-# Set theme
-sed -i '' 's/^ZSH_THEME=.*/ZSH_THEME="gentoo"/' ~/.zshrc
-cat << EOF >> ~/.zshrc
-
-##############
-# User Config
-
-# Plugins
-source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
-
-# ZSH Highlight
-typeset -A ZSH_HIGHLIGHT_STYLES
-ZSH_HIGHLIGHT_STYLES[arg0]='fg=yellow,bold'
-
-# Alias
-alias zshconfig="nano ~/.zshrc"
-alias ohmyzsh="nano ~/.oh-my-zsh"
-
-# Pyenv
-export PATH="\$HOME/.pyenv/bin:\$PATH"
-eval "\$(pyenv init -)"
-
-# Golang
-export PATH="\$PATH:\$(go env GOPATH)/bin"
-
-# NVM
-export NVM_DIR="\$HOME/.nvm"
-[ -s "\$NVM_DIR/nvm.sh" ] && \. "\$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "\$NVM_DIR/bash_completion" ] && \. "\$NVM_DIR/bash_completion"  # This loads nvm bash_completion
-
-# VSCode
-export PATH="$PATH:/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
-
-EOF
-}
-
 configureVSCode(){
     echo "Installing VSCode Extensions..."
     for i in "${vscodeExtensions[@]}"
@@ -306,27 +337,4 @@ configureVSCode(){
     done
 }
 
-
-installFlatpak(){
-  flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-}
-
-installApp(){
-  flatpak install flathub $1
-}
-
-pinToDock(){
-  gsettings set org.gnome.shell favorite-apps "$(gsettings get org.gnome.shell favorite-apps | sed s/.$//), $1)"
-}
-
-setupSSH(){
-    echo "Setting up SSH keys..."
-    mkdir ~/.ssh
-    touch ~/.ssh/config
-    ssh-keygen -t rsa -b 4096 -C $email
-    ssh-add -K ~/.ssh/id_rsa;
-}
-
 pretty_print "Done! Please restart your system for all changes to take effect."
-
-
